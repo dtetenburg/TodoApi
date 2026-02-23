@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Moq;
+using NSubstitute;
 using TodoApi.Models;
 using TodoApi.Repositories;
 using TodoApi.Services;
@@ -12,13 +12,13 @@ namespace TodoApi.UnitTests;
 /// </summary>
 public class TodoServiceTests
 {
-    private readonly Mock<ITodoRepository> _mockRepository;
+    private readonly ITodoRepository _mockRepository;
     private readonly TodoService _service;
 
     public TodoServiceTests()
     {
-        _mockRepository = new Mock<ITodoRepository>();
-        _service = new TodoService(_mockRepository.Object);
+        _mockRepository = Substitute.For<ITodoRepository>();
+        _service = new TodoService(_mockRepository);
     }
 
     #region GetAllAsync Tests
@@ -27,8 +27,8 @@ public class TodoServiceTests
     public async Task GetAllAsync_ReturnsEmptyList_WhenNoTodosExist()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetAllAsync(null))
-            .ReturnsAsync(new List<TodoItem>());
+        _mockRepository.GetAllAsync(null)
+            .Returns(new List<TodoItem>());
 
         // Act
         var result = await _service.GetAllAsync();
@@ -46,8 +46,8 @@ public class TodoServiceTests
             new() { Id = 1, Title = "Todo 1" },
             new() { Id = 2, Title = "Todo 2" }
         };
-        _mockRepository.Setup(r => r.GetAllAsync(null))
-            .ReturnsAsync(todos);
+        _mockRepository.GetAllAsync(null)
+            .Returns(todos);
 
         // Act
         var result = await _service.GetAllAsync();
@@ -60,14 +60,14 @@ public class TodoServiceTests
     public async Task GetAllAsync_CallsRepositoryWithStatus_WhenStatusProvided()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetAllAsync(TodoStatus.InProgress))
-            .ReturnsAsync(new List<TodoItem>());
+        _mockRepository.GetAllAsync(TodoStatus.InProgress)
+            .Returns(new List<TodoItem>());
 
         // Act
         await _service.GetAllAsync(status: TodoStatus.InProgress);
 
         // Assert
-        _mockRepository.Verify(r => r.GetAllAsync(TodoStatus.InProgress), Times.Once);
+        await _mockRepository.Received(1).GetAllAsync(TodoStatus.InProgress);
     }
 
     #endregion
@@ -79,8 +79,8 @@ public class TodoServiceTests
     {
         // Arrange
         var todo = new TodoItem { Id = 1, Title = "Test Todo" };
-        _mockRepository.Setup(r => r.GetByIdAsync(1))
-            .ReturnsAsync(todo);
+        _mockRepository.GetByIdAsync(1)
+            .Returns(todo);
 
         // Act
         var result = await _service.GetByIdAsync(1);
@@ -94,8 +94,8 @@ public class TodoServiceTests
     public async Task GetByIdAsync_ReturnsNull_WhenTodoDoesNotExist()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync(999))
-            .ReturnsAsync((TodoItem?)null);
+        _mockRepository.GetByIdAsync(999)
+            .Returns((TodoItem?)null);
 
         // Act
         var result = await _service.GetByIdAsync(999);
@@ -119,9 +119,10 @@ public class TodoServiceTests
             Priority = 1
         };
 
-        _mockRepository.Setup(r => r.AddAsync(It.IsAny<TodoItem>()))
-            .ReturnsAsync((TodoItem item) =>
+        _mockRepository.AddAsync(Arg.Any<TodoItem>())
+            .Returns(callInfo =>
             {
+                var item = callInfo.Arg<TodoItem>();
                 item.Id = 1;
                 return item;
             });
@@ -143,14 +144,14 @@ public class TodoServiceTests
     {
         // Arrange
         var request = new CreateTodoRequest { Title = "Test" };
-        _mockRepository.Setup(r => r.AddAsync(It.IsAny<TodoItem>()))
-            .ReturnsAsync((TodoItem item) => item);
+        _mockRepository.AddAsync(Arg.Any<TodoItem>())
+            .Returns(callInfo => callInfo.Arg<TodoItem>());
 
         // Act
         await _service.CreateAsync(request);
 
         // Assert
-        _mockRepository.Verify(r => r.AddAsync(It.Is<TodoItem>(t => t.Title == "Test")), Times.Once);
+        await _mockRepository.Received(1).AddAsync(Arg.Is<TodoItem>(t => t.Title == "Test"));
     }
 
     #endregion
@@ -162,10 +163,10 @@ public class TodoServiceTests
     {
         // Arrange
         var existingTodo = new TodoItem { Id = 1, Title = "Original" };
-        _mockRepository.Setup(r => r.GetByIdAsync(1))
-            .ReturnsAsync(existingTodo);
-        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<TodoItem>()))
-            .ReturnsAsync((TodoItem item) => item);
+        _mockRepository.GetByIdAsync(1)
+            .Returns(existingTodo);
+        _mockRepository.UpdateAsync(Arg.Any<TodoItem>())
+            .Returns(callInfo => callInfo.Arg<TodoItem>());
 
         var updateRequest = new UpdateTodoRequest
         {
@@ -190,8 +191,8 @@ public class TodoServiceTests
     public async Task UpdateAsync_ReturnsNull_WhenTodoDoesNotExist()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync(999))
-            .ReturnsAsync((TodoItem?)null);
+        _mockRepository.GetByIdAsync(999)
+            .Returns((TodoItem?)null);
 
         var updateRequest = new UpdateTodoRequest { Title = "Updated" };
 
@@ -200,7 +201,7 @@ public class TodoServiceTests
 
         // Assert
         result.Should().BeNull();
-        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TodoItem>()), Times.Never);
+        await _mockRepository.DidNotReceive().UpdateAsync(Arg.Any<TodoItem>());
     }
 
     #endregion
@@ -212,10 +213,8 @@ public class TodoServiceTests
     {
         // Arrange
         var todo = new TodoItem { Id = 1, Title = "To Delete" };
-        _mockRepository.Setup(r => r.GetByIdAsync(1))
-            .ReturnsAsync(todo);
-        _mockRepository.Setup(r => r.DeleteAsync(todo))
-            .Returns(Task.CompletedTask);
+        _mockRepository.GetByIdAsync(1)
+            .Returns(todo);
 
         // Act
         var result = await _service.DeleteAsync(1);
@@ -229,31 +228,29 @@ public class TodoServiceTests
     {
         // Arrange
         var todo = new TodoItem { Id = 1, Title = "To Delete" };
-        _mockRepository.Setup(r => r.GetByIdAsync(1))
-            .ReturnsAsync(todo);
-        _mockRepository.Setup(r => r.DeleteAsync(todo))
-            .Returns(Task.CompletedTask);
+        _mockRepository.GetByIdAsync(1)
+            .Returns(todo);
 
         // Act
         await _service.DeleteAsync(1);
 
         // Assert
-        _mockRepository.Verify(r => r.DeleteAsync(todo), Times.Once);
+        await _mockRepository.Received(1).DeleteAsync(todo);
     }
 
     [Fact]
     public async Task DeleteAsync_ReturnsFalse_WhenTodoDoesNotExist()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync(999))
-            .ReturnsAsync((TodoItem?)null);
+        _mockRepository.GetByIdAsync(999)
+            .Returns((TodoItem?)null);
 
         // Act
         var result = await _service.DeleteAsync(999);
 
         // Assert
         result.Should().BeFalse();
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<TodoItem>()), Times.Never);
+        await _mockRepository.DidNotReceive().DeleteAsync(Arg.Any<TodoItem>());
     }
 
     #endregion
@@ -308,4 +305,3 @@ public class TodoServiceTests
 
     #endregion
 }
-
