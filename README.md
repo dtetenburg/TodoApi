@@ -110,9 +110,21 @@ curl -X DELETE http://localhost:5000/api/todos/1
 curl -X DELETE "http://localhost:5000/api/todos/bulk?ids=1,2,3"
 ```
 
+## Requirements
+
+See [Setup.md](Setup.md) for detailed installation instructions.
+
+| Software | Version |
+|----------|---------|
+| Git | 2.x+ |
+| .NET SDK | 10.0 |
+| Docker Desktop | Latest |
+
+> Without Docker, only the unit tests will work. Integration tests and API tests require Docker.
+
 ## Getting Started
 
-See [Setup.md](Setup.md) for installation requirements and setup instructions.
+See [Setup.md](Setup.md) for setup instructions.
 
 ## Testing Concepts Explained
 
@@ -121,7 +133,7 @@ See [Setup.md](Setup.md) for installation requirements and setup instructions.
 Unit tests test individual components in **isolation**:
 
 #### TodoServiceTests
-- Uses **Moq** to mock the `ITodoRepository`
+- Uses **NSubstitute** to mock the `ITodoRepository`
 - Tests the `TodoService` business logic without database
 - Verifies correct method calls to repository
 - Fast execution (no I/O)
@@ -134,7 +146,7 @@ Unit tests test individual components in **isolation**:
 **Key packages:**
 - `xUnit` - Testing framework
 - `FluentAssertions` - Readable assertions
-- `Moq` - Mocking framework
+- `NSubstitute` - Mocking framework
 - `Microsoft.EntityFrameworkCore.InMemory` - In-memory database
 
 ### Integration Tests (`TodoApi.IntegrationTests`)
